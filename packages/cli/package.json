@@ -12,6 +12,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@codex-auto-reset/core": "workspace:*"
+    "@codex-auto-reset/core": "workspace:*",
+    "@codex-auto-reset/daemon": "workspace:*"
   }
 }
