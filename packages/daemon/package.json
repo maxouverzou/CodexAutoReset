@@ -1,0 +1,14 @@
+{
+  "name": "@codex-auto-reset/daemon",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@codex-auto-reset/core": "workspace:*"
+  }
+}
