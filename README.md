@@ -43,6 +43,77 @@ node packages/cli/dist/index.js daemon --poll-interval 5m --redemption-lead-time
 node packages/cli/dist/index.js status --auth-file /path/to/pi/auth.json
 ```
 
+## Nix package
+
+The flake exports `packages.<system>.codex-auto-reset` (also `default`), matching
+`apps` outputs, and `overlays.default`. Supported systems are `x86_64-linux`,
+`aarch64-linux`, and `aarch64-darwin`.
+
+```sh
+nix build .#codex-auto-reset
+./result/bin/codex-auto-reset --help
+nix run . -- status
+nix run . -- resets list --json
+```
+
+The package builds TypeScript and runs the fixture tests in the Nix sandbox. Its
+runtime includes Node and the compiled workspace packages, not a checkout,
+`tsx`, or development dependencies. `nix flake check` also checks the Home Manager
+module on Linux. After changing dependency versions or the lockfile, regenerate
+`pnpmDeps.hash` in `nix/package.nix` using the usual fixed-output hash workflow.
+
+### Home Manager systemd user service (Linux)
+
+Add this flake as an input, then import its module in your Home Manager configuration:
+
+```nix
+# In your flake inputs:
+inputs.codex-auto-reset.url = "github:maxouverzou/CodexAutoReset";
+
+# In a Home Manager module, with your flake inputs passed to the module:
+{ inputs, ... }:
+{
+  imports = [ inputs.codex-auto-reset.homeManagerModules.default ];
+
+  services.codex-auto-reset = {
+    enable = true;
+    pollInterval = 300;       # seconds
+    redemptionLeadTime = 900; # seconds
+
+    # Optional runtime filename: a STRING, never a Nix path literal or file contents.
+    # authFile = "/home/alice/.pi/agent/auth.json";
+  };
+}
+```
+
+The module installs the CLI and defines `codex-auto-reset.service`, wanted by the
+user's `default.target`, with restart-on-failure. `package` can override the
+bundled package. Enabling the service **authorizes automatic redemption** under
+the expiry policy; it does not just enable monitoring. Timing settings are
+validated at evaluation time.
+
+The example input and Home Manager module are separate snippets, not a complete
+flake. For standalone Home Manager, pass `extraSpecialArgs = { inherit inputs; };`
+to `homeManagerConfiguration`; for Home Manager in NixOS, use
+`home-manager.extraSpecialArgs = { inherit inputs; };`.
+
+After applying your Home Manager configuration:
+
+```sh
+systemctl --user start codex-auto-reset.service
+systemctl --user status codex-auto-reset.service
+journalctl --user -u codex-auto-reset.service -f
+```
+
+The user manager may not inherit `PI_CODING_AGENT_DIR` from your interactive shell;
+set `authFile` explicitly if Pi uses a nondefault directory. Do **not** use
+`authFile = /home/alice/.pi/agent/auth.json;`, `builtins.readFile`, or embed tokens
+in Nix configuration: that could copy secrets into the publicly readable store.
+The module only passes the filename at runtime and does not provision credentials.
+Pi still owns token refresh. The service runs while the systemd user manager is
+running; running after logout requires separately configured user lingering.
+This module does not enable lingering or modify the system automatically.
+
 ## Credentials
 
 Resolution order:
